@@ -11,15 +11,15 @@ def entropy(arr: np.array):
 def gain(arr: np.array):
     return entropy(arr.T)-entropy(arr)
 
-def bestGainIndex(S, attributes):
+def bestGainIndex(S, attributes, label):
     coalesced = []
-    lastIndex = len(attributes)-1
+    lastIndex = len(attributes)
     for i in range(lastIndex):
-        coalesced.append( np.zeros( (len(attributes[i]), len(attributes[lastIndex])), dtype=np.float ) )
+        coalesced.append( np.zeros( (len(attributes[i]), len(label)), dtype=np.float ) )
     for terms in data:
         for i in range(lastIndex):
             j = attributes[i].index(terms[i])
-            k = attributes[lastIndex].index(terms[lastIndex])
+            k = label.index(terms[lastIndex])
             coalesced[i][j][k] += 1
 
     bestIndex = -1
@@ -39,37 +39,37 @@ def loadfile(filename):
     return np.array(data)
 
 def getAttributes(data):
-    attributes = []
-    for i in range(len(data[0])):
-        attributes.append(set())
-    for terms in data:
-        for i in range(len(terms)):
-            attributes[i].add(terms[i])
-    attributes = [list(v) for v in attributes]
+    attributes = [list(set(x)) for x in data.T]
     [v.sort() for v in attributes]
-    return attributes
+    return attributes[0:len(attributes)-1], attributes[len(attributes)-1]
 
 def preprocess(data, terms):
     return
 
-def id3(S, attributes):
+def id3(S, attributes, label):
     node = {}
+    lastIndex = len(attributes)
 
-    lastIndex = len(attributes)-1
+    commonList = Counter(S.T[lastIndex]).most_common()
+    mostCommon = commonList[0][0]
+    if len(commonList) < 2:
+        return mostCommon
 
-    print(Counter(S.T[lastIndex]).most_common(1)[0][0])
-
-    bestIndex = bestGainIndex(S, attributes)
+    bestIndex = bestGainIndex(S, attributes, label)
     node["attribute"] = bestIndex
     node["leaves"] = {}
     for leaf in attributes[bestIndex]:
-        subset = [x for x in S if x[bestIndex] == leaf]
-        newAttributes = attributes.copy()
-        newAttributes[bestIndex] = None
-        node["leaves"][leaf] = id3(subset, newAttributes)
+        subset = np.array([x for x in S if x[bestIndex] == leaf])
+        if len(subset) == 0:
+            node["leaves"][leaf] = mostCommon
+        else:
+            newAttributes = attributes.copy()
+            newAttributes[bestIndex] = []
+            node["leaves"][leaf] = None#id3(subset, newAttributes)
 
     return node
 
 data = loadfile("DecisionTree/car/train.csv")
-attributes = getAttributes(data)
-id3(data, attributes)
+attributes, label = getAttributes(data)
+print(getAttributes(data))
+id3(data, attributes, label)
