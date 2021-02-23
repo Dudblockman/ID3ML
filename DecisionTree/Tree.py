@@ -25,7 +25,37 @@ class treemaker:
     def gain(self, arr: np.array, arr2: np.array):
         return self.entropy(arr2)-self.entropy(arr)
 
-    def informationGain(self, S, attributes, label):
+    def informationGain(self, S, attributes, label, coalesced, mastercounts):
+        bestIndex = -1
+        bestGain = 0
+        for k in coalesced.keys():
+            g = self.gain(coalesced[k], mastercounts)
+            if g > bestGain:
+                bestGain = g
+                bestIndex = k
+        return bestIndex
+
+    def majorityError(self, S, attributes, label):
+        return 0
+
+    def gini(self, A):
+        summ = np.sum(A)
+        g = 0
+        for i in range(A.shape[0]):
+            g += (1 - np.sum(np.square(A[i] / np.sum(A[i])))) * (np.sum(A[i]) / summ)
+        return g
+
+    def giniIndex(self, S, attributes, label, coalesced, mastercounts):
+        bestIndex = -1
+        bestGain = 1
+        for k in coalesced.keys():
+            g = self.gini(coalesced[k])
+            if g < bestGain:
+                bestGain = g
+                bestIndex = k
+        return bestIndex
+
+    def bestGainIndex(self, S, attributes, label):
         coalesced = {}
         lastIndex = attributes["count"]
         for k,v in attributes.items():
@@ -38,44 +68,16 @@ class treemaker:
                     j = attributes[i].index(terms[i])
                     k = label.index(terms[lastIndex])
                     coalesced[i][j][k] += 1
+
         counts = Counter(S.T[len(S[0])-1])
 
-        arr2 = np.array([counts[x] for x in label]).T
-
-        bestIndex = -1
-        bestGain = 0
-        for k in coalesced.keys():
-            if self.gain(coalesced[k], arr2) > bestGain:
-                bestGain = self.gain(coalesced[k], arr2)
-                bestIndex = k
-        return bestIndex
-
-    def majorityError(self, S, attributes, label):
-        return 0
-
-    def gini(self, A):
-        summ = 0
-        for i, ai in enumerate(A[:-1], 1):
-            summ += np.sum(np.abs(ai - A[i:]))
-        return summ / (len(A)**2 * np.average(A))
-
-    def giniIndex(self, S, attributes, label):
-        print (str(self.gini(S)))
-        lastIndex = attributes["count"]
-        for terms in S:
-            for i in range(lastIndex):
-                if i in attributes:
-                    j = attributes[i].index(terms[i])
-                    k = label.index(terms[lastIndex])
-        return 0
-
-    def bestGainIndex(self, S, attributes, label):
+        mastercounts = np.array([counts[x] for x in label]).T
         if self.mode == 0:
-            return self.informationGain(S, attributes, label)
+            return self.informationGain(S, attributes, label, coalesced, mastercounts)
         if self.mode == 1:
             return self.majorityError(S, attributes, label)
         if self.mode == 2:
-            return self.giniIndex(S, attributes, label)
+            return self.giniIndex(S, attributes, label, coalesced, mastercounts)
         return 0
 
 
@@ -177,7 +179,7 @@ trainingdata = loadfile("DecisionTree/bank/train.csv")
 testdata = loadfile("DecisionTree/bank/test.csv")
 
 treegen = treemaker()
-tree = treegen.generateTree(trainingdata, 2, mode=2)
+tree = treegen.generateTree(trainingdata, 12, mode=2)
 
 print(tree)
 print(accuracy(trainingdata, tree), accuracy(testdata, tree))
