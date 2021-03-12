@@ -2,11 +2,10 @@ import numpy as np
 import re
 from collections import Counter
 
-    
-
 class treemaker:
     mode = 0
-    def entropy(self, arr: np.array):
+    @staticmethod
+    def entropy(arr: np.array):
         if len(arr.shape) > 1:
             a = (arr.T / np.sum(arr, axis=1)).T
             b = np.ma.log2(a)
@@ -22,34 +21,39 @@ class treemaker:
             e = np.sum(np.multiply(c,d))
             return e
 
-    def gain(self, arr: np.array, arr2: np.array):
-        return self.entropy(arr2)-self.entropy(arr)
+    @staticmethod
+    def gain(arr: np.array, arr2: np.array):
+        return treemaker.entropy(arr2)-treemaker.entropy(arr)
 
-    def informationGain(self, S, attributes, label, coalesced, mastercounts):
+    @staticmethod
+    def informationGain(S, attributes, label, coalesced, mastercounts):
         bestIndex = -1
         bestGain = 0
         for k in coalesced.keys():
-            g = self.gain(coalesced[k], mastercounts)
+            g = treemaker.gain(coalesced[k], mastercounts)
             if g > bestGain:
                 bestGain = g
                 bestIndex = k
         return bestIndex
 
-    def majorityError(self, S, attributes, label):
+    @staticmethod
+    def majorityError(S, attributes, label, coalesced, mastercounts):
         return 0
 
-    def gini(self, A):
+    @staticmethod
+    def gini(A):
         summ = np.sum(A)
         g = 0
         for i in range(A.shape[0]):
             g += (1 - np.sum(np.square(A[i] / np.sum(A[i])))) * (np.sum(A[i]) / summ)
         return g
 
-    def giniIndex(self, S, attributes, label, coalesced, mastercounts):
+    @staticmethod
+    def giniIndex(S, attributes, label, coalesced, mastercounts):
         bestIndex = -1
         bestGain = 1
         for k in coalesced.keys():
-            g = self.gini(coalesced[k])
+            g = treemaker.gini(coalesced[k])
             if g < bestGain:
                 bestGain = g
                 bestIndex = k
@@ -73,11 +77,11 @@ class treemaker:
 
         mastercounts = np.array([counts[x] for x in label]).T
         if self.mode == 0:
-            return self.informationGain(S, attributes, label, coalesced, mastercounts)
+            return treemaker.informationGain(S, attributes, label, coalesced, mastercounts)
         if self.mode == 1:
-            return self.majorityError(S, attributes, label)
+            return treemaker.majorityError(S, attributes, label, coalesced, mastercounts)
         if self.mode == 2:
-            return self.giniIndex(S, attributes, label, coalesced, mastercounts)
+            return treemaker.giniIndex(S, attributes, label, coalesced, mastercounts)
         return 0
 
 
@@ -140,32 +144,34 @@ class treemaker:
         attributes, label = self.getAttributes(S)
         return self.id3(S, attributes, label, maxdepth)
 
-def evalTree(T, V):
-    while type(T) == dict:
-        index = T["attribute"]
-        index = V[index]
-        if index in T["leaves"]:
-            T = T["leaves"][index]
-        else:
-            for k,v in T["leaves"].items():
-                m = re.search("^([<>]=?)(-?[0-9]+)$", k)
-                if m != None:
-                    if m.groups()[0] == ">=":
-                        if int(index) >= int(m.groups()[1]):
-                            T = T["leaves"][k]
-                            break
-                    if m.groups()[0] == "<":
-                        if int(index) < int(m.groups()[1]):
-                            T = T["leaves"][k]
-                            break
-    return T
-
-def accuracy(S, T):
-    correct = 0
-    for case in S:
-        if case[len(case)-1] == evalTree(T, case):
-            correct+=1
-    return correct / len(S)
+    @staticmethod
+    def evalTree(T, V):
+        while type(T) == dict:
+            index = T["attribute"]
+            index = V[index]
+            if index in T["leaves"]:
+                T = T["leaves"][index]
+            else:
+                for k,v in T["leaves"].items():
+                    m = re.search("^([<>]=?)(-?[0-9]+)$", k)
+                    if m != None:
+                        if m.groups()[0] == ">=":
+                            if int(index) >= int(m.groups()[1]):
+                                T = T["leaves"][k]
+                                break
+                        if m.groups()[0] == "<":
+                            if int(index) < int(m.groups()[1]):
+                                T = T["leaves"][k]
+                                break
+        return T
+    
+    @staticmethod
+    def accuracy(S, T):
+        correct = 0
+        for case in S:
+            if case[len(case)-1] == treemaker.evalTree(T, case):
+                correct+=1
+        return correct / len(S)
 
 def loadfile(filename, process=True):
     data = []
@@ -175,39 +181,33 @@ def loadfile(filename, process=True):
             data.append(terms)
     return np.array(data)
 
-trainingdata = loadfile("DecisionTree/bank/train.csv")
-testdata = loadfile("DecisionTree/bank/test.csv")
 
+'''
 treegen = treemaker()
-tree = treegen.generateTree(trainingdata, 12, mode=2)
 
-print(tree)
-print(accuracy(trainingdata, tree), accuracy(testdata, tree))
+cartrainingdata = loadfile("DecisionTree/bank/train.csv")
+cartestdata = loadfile("DecisionTree/bank/test.csv")
+
+banktrainingdata = loadfile("DecisionTree/bank/train.csv")
+banktestdata = loadfile("DecisionTree/bank/test.csv")
 
 
+for mode in range(0,3,2):
+    for depth in range(1,7):
+        tree = treegen.generateTree(cartrainingdata, depth, mode=mode)
+        print(mode, depth, accuracy(cartrainingdata, tree), accuracy(cartestdata, tree))
 
-'''
-trainingdata = loadfile("DecisionTree/car/train.csv")
-testdata = loadfile("DecisionTree/car/test.csv")
+for mode in range(0,3,2):
+    for depth in range(1,17):
+        tree = treegen.generateTree(banktrainingdata, depth, mode=mode)
+        print(depth, "&" ,accuracy(banktrainingdata, tree), "&", accuracy(banktestdata, tree), "\\\\")
 
-attributes, label = getAttributes(trainingdata)
-
-tree = id3(trainingdata, attributes, label, 3)
-
-print(tree)
-print(accuracy(trainingdata, tree), accuracy(testdata, tree))
-
-'''
-'''
-
+''
 trainingdata = loadfile("DecisionTree/tennis.csv")
 
-attributes, label = getAttributes(trainingdata)
 
-tree = id3(trainingdata, attributes, label, 4)
+tree = treegen.generateTree(trainingdata,mode=2)
 output = str(tree)
 output = output.replace("0","Outlook").replace("1","Temperature").replace("2","Humidity").replace("3","Windy")
-
 print(output)
-print(accuracy(trainingdata, tree))
-'''
+print(accuracy(trainingdata, tree))'''
