@@ -6,18 +6,23 @@ import torch.utils.data as data
 import pandas as pd
 
 class SimpleNet(nn.Module):
-  def __init__(self):
+  def __init__(self, tanh=False, width=5, depth=3):
     super().__init__()
-
-    self.fc_layers = nn.Sequential(
-      nn.Linear(4, 5),
-      nn.ReLU(),
-      nn.Linear(5, 5),
-      nn.ReLU(),
-      nn.Linear(5, 5),
-      nn.ReLU(),
-      nn.Linear(5, 1)
-    )
+    if tanh:
+        accumulator = nn.Tanh
+    else:
+        accumulator = nn.ReLU
+            
+    modules = [
+        nn.Linear(4, width),
+        accumulator()
+    ]
+    
+    for _ in range(depth-2):
+        modules.append(nn.Linear(width, width))
+        modules.append(accumulator())
+    modules.append(nn.Linear(width, 1))
+    self.fc_layers = nn.Sequential(*modules)
     self.loss_criterion = nn.L1Loss()
 
 
@@ -63,24 +68,15 @@ class torchnn:
 
         return optimizer
 
-    def __init__(self, optimizer_config=None, tanh=False):
+    def __init__(self, optimizer_config=None, width=5, depth=3, tanh=False):
         if optimizer_config == None:
             optimizer_config = {
                 "optimizer_type": "adam",
                 "lr": 1e-3,
                 "weight_decay": 3e-3
             }
-        self.Net = SimpleNet()
-        if tanh:    
-            self.Net.fc_layers = nn.Sequential(
-                nn.Linear(4, 5),
-                nn.Tanh(),
-                nn.Linear(5, 5),
-                nn.Tanh(),
-                nn.Linear(5, 5),
-                nn.Tanh(),
-                nn.Linear(5, 1)
-            )
+        self.Net = SimpleNet(width=width,depth=depth,tanh=tanh)
+
         self.optimizer = self.get_optimizer(self.Net, optimizer_config)
     
     def train(self, trainpath, num_epoch):
@@ -118,6 +114,6 @@ class torchnn:
             output = self.Net(torch.Tensor(trainloader.datalist[i]))
             if (output[0].item() < 0.5) == (trainloader.labels[i] < 0.5):
                 correct+=1
-        print("Accuracy of model:",correct / trainloader.datalist.shape[0])
+        return correct / trainloader.datalist.shape[0]
 
 
