@@ -55,12 +55,14 @@ def evaluate(weights, data, mode):
     if mode == "standard":
         predictor = np.array(weights[-1][0]).T
         return -1 if predictor @ data < 0 else 1
+        
     if mode == "voted":
         result = 0
         for predictor in weights:
             weight = predictor[0].T
             result += predictor[1] * (weight @ data)
         return -1 if result < 0 else 1
+
     if mode == "average":
         average = np.zeros(len(weights[0][0]))
         for predictor in weights:
